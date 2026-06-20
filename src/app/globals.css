@@ -1,26 +1,36 @@
 @import "tailwindcss";
 
+@theme {
+  --color-background: hsl(0, 0%, 100%); /* الخلفية بيضاء بالكامل */
+  --color-foreground: hsl(20, 14.3%, 4.1%); /* نص داكن مقروء */
+  
+  /* اللون الأساسي: بني قهوة غامق كما في الصورة */
+  --color-primary: hsl(15, 20%, 30%); 
+  --color-primary-foreground: hsl(0, 0%, 100%); /* نص أبيض فوق الزر البني */
+  
+  /* اللون الثانوي: بني رمادي فاتح للخلفيات الثانوية */
+  --color-muted: hsl(20, 5%, 95%); 
+  --color-muted-foreground: hsl(20, 5%, 45%); 
+  
+  --color-border: hsl(20, 5.9%, 92%);
+  
+  /* زوايا دائرية ناعمة جداً */
+  --radius-lg: 1.25rem;
+  --radius-md: 1rem;
+  --radius-sm: 0.75rem;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: 0 0% 100%;
+  --foreground: 20 14.3% 4.1%;
+  --primary: 15 20% 30%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  /* لمنع المتصفح من عمل Zoom عند النقر السريع على الهواتف */
+  touch-action: manipulation; 
+  /* إضافة مساحة كافية في الأسفل لشريط السلة العائم */
+  padding-bottom: env(safe-area-inset-bottom);
 }
