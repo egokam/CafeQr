@@ -3,7 +3,7 @@
 import { useState, useEffect, use } from "react";
 import { useCart } from "../../../store/useCart";
 import MenuCard from "../../../components/MenuCard";
-import { Receipt, X as XIcon, Clock, CheckCircle, Coffee, CakeSlice, CupSoda, Croissant } from "lucide-react";
+import { Receipt, X as XIcon, Clock, CheckCircle, Coffee, CakeSlice, CupSoda, Croissant, AlertTriangle, QrCode } from "lucide-react";
 import { supabase } from "../../../lib/supabase";
 
 const TRANSLATIONS: Record<string, any> = {
@@ -13,6 +13,7 @@ const TRANSLATIONS: Record<string, any> = {
     reviewing: "قيد المراجعة ⏳", preparing: "جاري التحضير 👨‍🍳", ready: "جاهز للتقديم 🚶‍♂️",
     orderNum: "رقم الطلب", addMore: "+ طلب شيء آخر", cancel: "إلغاء الطلب",
     myOrders: "طلباتي الحالية", emptyOrders: "لا توجد طلبات نشطة حالياً.", close: "إغلاق",
+    tableErrorTitle: "الطاولة غير مفعّلة 🚫", tableErrorDesc: "عذراً، كود الـ QR الخاص بهذه الطاولة غير مسجل في النظام بعد. يرجى مراجعة طاقم المقهى.",
     categories: [
       { id: "coffee", name: "القهوة", icon: Coffee }, { id: "sweets", name: "الحلوى", icon: CakeSlice },
       { id: "juice", name: "عصائر", icon: CupSoda }, { id: "bakery", name: "مخبوزات", icon: Croissant }
@@ -24,6 +25,7 @@ const TRANSLATIONS: Record<string, any> = {
     reviewing: "Reviewing ⏳", preparing: "Preparing 👨‍🍳", ready: "Ready! 🚶‍♂️",
     orderNum: "Order #", addMore: "+ Add more", cancel: "Cancel",
     myOrders: "My Orders", emptyOrders: "No active orders.", close: "Close",
+    tableErrorTitle: "Table Not Active 🚫", tableErrorDesc: "Sorry, this table's QR code is not registered in the system yet. Please ask the cafe staff.",
     categories: [
       { id: "coffee", name: "Coffee", icon: Coffee }, { id: "sweets", name: "Sweets", icon: CakeSlice },
       { id: "juice", name: "Juices", icon: CupSoda }, { id: "bakery", name: "Bakery", icon: Croissant }
@@ -35,6 +37,7 @@ const TRANSLATIONS: Record<string, any> = {
     reviewing: "En révision ⏳", preparing: "Préparation 👨‍🍳", ready: "Prêt! 🚶‍♂️",
     orderNum: "N° Cmd", addMore: "+ Ajouter", cancel: "Annuler",
     myOrders: "Mes Commandes", emptyOrders: "Aucune commande active.", close: "Fermer",
+    tableErrorTitle: "Table Non Active 🚫", tableErrorDesc: "Désolé, le code QR de cette table n'est pas encore enregistré. Veuillez contacter le personnel.",
     categories: [
       { id: "coffee", name: "Café", icon: Coffee }, { id: "sweets", name: "Desserts", icon: CakeSlice },
       { id: "juice", name: "Jus", icon: CupSoda }, { id: "bakery", name: "Boulangerie", icon: Croissant }
@@ -56,7 +59,6 @@ const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => 
   return R * c; 
 };
 
-// 🌟 دالة التوليد الآمنة (المنقذ للهواتف على شبكة HTTP المحلية)
 const getSafeUUID = () => {
   if (typeof window !== "undefined" && window.crypto && window.crypto.randomUUID) {
     return window.crypto.randomUUID();
@@ -85,6 +87,10 @@ export default function ClientMenuPage({ params }: { params: Promise<{ cafeSlug:
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // 🌟 دروع الخطأ الجديدة
+  const [isTableNotFound, setIsTableNotFound] = useState(false);
+  const [isCafeNotFound, setIsCafeNotFound] = useState(false);
+
   const displayTitle = cafeData?.name ? cafeData.name : (activeLang === 'ar' ? "مقهى النخبة" : activeLang === 'fr' ? "Café Élite" : "Elite Cafe");
 
   const fetchUserOrders = async (sessionId: string) => {
@@ -98,19 +104,35 @@ export default function ClientMenuPage({ params }: { params: Promise<{ cafeSlug:
     const fetchRealData = async () => {
       try {
         setIsLoading(true);
+        setIsTableNotFound(false);
+        setIsCafeNotFound(false);
+
+        // 1. التحقق من وجود المقهى
         const { data: cData } = await supabase.from('cafes').select('id, name, latitude, longitude').eq('slug', cafeSlug).single();
-        if (!cData) { setIsLoading(false); return; }
+        if (!cData) { 
+          setIsCafeNotFound(true);
+          setIsLoading(false); 
+          return; 
+        }
         setCafeData(cData);
 
+        // 2. التحقق الفاصل: هل هذه الطاولة موجودة فعلياً في قاعدة البيانات؟
         const { data: tData } = await supabase.from('tables').select('id').eq('cafe_id', cData.id).eq('table_number', tableNumber).single();
-        if (tData) setTableId(tData.id);
+        
+        if (!tData) {
+          setIsTableNotFound(true); // تفجير شاشة منع الدخول للطاولة الوهمية
+          setIsLoading(false);
+          return;
+        }
 
+        setTableId(tData.id);
+
+        // 3. جلب المنتجات والطلبات فقط إذا نجح التحقق
         const { data: pData } = await supabase.from('products').select('*').eq('cafe_id', cData.id).eq('is_active', true);
         if (pData) setProducts(pData);
 
         let sessionId = localStorage.getItem('cafe_lux_client_session');
         if (!sessionId) {
-          // 🌟 استدعاء الدالة الآمنة هنا بدلاً من الـ Crypto
           sessionId = getSafeUUID();
           localStorage.setItem('cafe_lux_client_session', sessionId);
         }
@@ -119,7 +141,6 @@ export default function ClientMenuPage({ params }: { params: Promise<{ cafeSlug:
       } catch (error) {
         console.error("Error loading client data:", error);
       } finally {
-        // 🌟 ضمان إخفاء شاشة التحميل مهما حدثت من أخطاء
         setIsLoading(false);
       }
     };
@@ -128,21 +149,14 @@ export default function ClientMenuPage({ params }: { params: Promise<{ cafeSlug:
 
   useEffect(() => {
     const sessionId = localStorage.getItem('cafe_lux_client_session');
-    if (!sessionId) return;
+    if (!sessionId || isTableNotFound || isCafeNotFound) return;
     
     const channel = supabase.channel(`client-orders-${sessionId}`)
-      .on('postgres_changes', { 
-          event: 'UPDATE', 
-          schema: 'public', 
-          table: 'orders', 
-          filter: `session_id=eq.${sessionId}` 
-        }, 
-      (payload) => { 
-        fetchUserOrders(sessionId);
-      }).subscribe();
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders', filter: `session_id=eq.${sessionId}` }, 
+      () => { fetchUserOrders(sessionId); }).subscribe();
       
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [isTableNotFound, isCafeNotFound]);
 
   const handleCheckout = () => {
     if (totalItems() === 0 || !cafeData || !tableId) return;
@@ -182,7 +196,7 @@ export default function ClientMenuPage({ params }: { params: Promise<{ cafeSlug:
           setIsSubmitting(false);
         }
       },
-      (error) => {
+      () => {
         alert(activeLang === 'ar' ? "يرجى السماح بالوصول إلى موقعك لتأكيد الطلب." : "Please allow location access.");
         setIsSubmitting(false);
       },
@@ -196,12 +210,43 @@ export default function ClientMenuPage({ params }: { params: Promise<{ cafeSlug:
       await supabase.from('orders').update({ status: 'cancelled' }).eq('id', orderId);
       setActiveOrders(prev => prev.filter(o => o.id !== orderId));
       if (activeOrders.length <= 1) setShowOrdersModal(false);
-    } catch (error) {
-      alert("خطأ في الإلغاء.");
-    }
+    } catch (error) { alert("خطأ في الإلغاء."); }
   };
 
   if (isLoading) return <div className="min-h-screen bg-background flex items-center justify-center font-bold text-foreground">جاري التحميل...</div>;
+
+  // 🚫 شاشة الخطأ الصارمة للمقهى الوهمي
+  if (isCafeNotFound) {
+    return (
+      <div className="min-h-screen bg-muted/20 flex flex-col items-center justify-center p-6 text-center" dir="rtl">
+        <AlertTriangle className="w-16 h-16 text-red-500 mb-4 opacity-80" />
+        <h1 className="text-3xl font-extrabold text-foreground mb-2">404 - المقهى غير موجود</h1>
+        <p className="text-muted-foreground text-sm max-w-sm">يرجى التأكد من مسح كود QR صحيح.</p>
+      </div>
+    );
+  }
+
+  // 🚫 شاشة الخطأ الأنيقة للطاولة غير المسجلة (متعددة اللغات!)
+  if (isTableNotFound) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center select-none" dir={activeLang === 'ar' ? 'rtl' : 'ltr'}>
+        <div className="w-20 h-20 bg-amber-500/10 text-amber-500 rounded-full flex items-center justify-center mb-6 border border-amber-500/20 shadow-sm">
+          <QrCode size={40} />
+        </div>
+        <h1 className="text-2xl font-black text-foreground mb-2 tracking-tight">{t.tableErrorTitle}</h1>
+        <p className="text-muted-foreground text-sm max-w-xs leading-relaxed mb-8 font-medium">
+          {t.tableErrorDesc}
+        </p>
+        
+        {/* مبدّل لغات صغير حتى في شاشة الخطأ */}
+        <div className="flex gap-1 bg-muted p-1 rounded-full border border-border/50">
+          {LANGUAGES.map(lang => (
+            <button key={lang} onClick={() => setActiveLang(lang)} className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase transition-colors ${activeLang === lang ? 'bg-white text-foreground shadow-sm' : 'text-muted-foreground'}`}>{lang}</button>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-32" dir={activeLang === 'ar' ? 'rtl' : 'ltr'}>
