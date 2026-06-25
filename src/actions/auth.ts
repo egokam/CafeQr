@@ -1,16 +1,23 @@
 "use server";
 import { createClient } from "@supabase/supabase-js";
 
-// نستخدم مفاتيح السيرفر من ملف .env.local
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 export async function verifyPin(cafeId: string, role: "admin" | "cashier", pin: string) {
-  await new Promise((resolve) => setTimeout(resolve, 500)); // حماية من التخمين
-  const { data, error } = await supabaseAdmin.from('cafes').select(role === 'admin' ? 'admin_pin' : 'cashier_pin').eq('id', cafeId).single();
-  if (error || !data) return false;
-  return role === 'admin' ? pin === data.admin_pin : pin === data.cashier_pin;
+  await new Promise((resolve) => setTimeout(resolve, 500));
+
+  if (role === "admin") {
+    const { data, error } = await supabaseAdmin.from('cafes').select('admin_pin').eq('id', cafeId).single();
+    if (error || !data) return false;
+    return pin === data.admin_pin;
+  } else {
+    const { data, error } = await supabaseAdmin.from('cafes').select('cashier_pin').eq('id', cafeId).single();
+    if (error || !data) return false;
+    return pin === data.cashier_pin;
+  }
 }
 
 // دالة إرسال كود الاستعادة للإيميل
