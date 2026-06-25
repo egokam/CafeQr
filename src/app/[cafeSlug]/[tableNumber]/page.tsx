@@ -56,6 +56,17 @@ const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => 
   return R * c; 
 };
 
+// 🌟 دالة التوليد الآمنة (المنقذ للهواتف على شبكة HTTP المحلية)
+const getSafeUUID = () => {
+  if (typeof window !== "undefined" && window.crypto && window.crypto.randomUUID) {
+    return window.crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+
 export default function ClientMenuPage({ params }: { params: Promise<{ cafeSlug: string, tableNumber: string }> }) {
   const { cafeSlug, tableNumber } = use(params);
   const { items, totalItems, totalPrice, clearCart } = useCart();
@@ -74,7 +85,6 @@ export default function ClientMenuPage({ params }: { params: Promise<{ cafeSlug:
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // جلب اسم المقهى الديناميكي
   const displayTitle = cafeData?.name ? cafeData.name : (activeLang === 'ar' ? "مقهى النخبة" : activeLang === 'fr' ? "Café Élite" : "Elite Cafe");
 
   const fetchUserOrders = async (sessionId: string) => {
@@ -86,30 +96,36 @@ export default function ClientMenuPage({ params }: { params: Promise<{ cafeSlug:
 
   useEffect(() => {
     const fetchRealData = async () => {
-      setIsLoading(true);
-      const { data: cData } = await supabase.from('cafes').select('id, name, latitude, longitude').eq('slug', cafeSlug).single();
-      if (!cData) { setIsLoading(false); return; }
-      setCafeData(cData);
+      try {
+        setIsLoading(true);
+        const { data: cData } = await supabase.from('cafes').select('id, name, latitude, longitude').eq('slug', cafeSlug).single();
+        if (!cData) { setIsLoading(false); return; }
+        setCafeData(cData);
 
-      const { data: tData } = await supabase.from('tables').select('id').eq('cafe_id', cData.id).eq('table_number', tableNumber).single();
-      if (tData) setTableId(tData.id);
+        const { data: tData } = await supabase.from('tables').select('id').eq('cafe_id', cData.id).eq('table_number', tableNumber).single();
+        if (tData) setTableId(tData.id);
 
-      const { data: pData } = await supabase.from('products').select('*').eq('cafe_id', cData.id).eq('is_active', true);
-      if (pData) setProducts(pData);
+        const { data: pData } = await supabase.from('products').select('*').eq('cafe_id', cData.id).eq('is_active', true);
+        if (pData) setProducts(pData);
 
-      let sessionId = localStorage.getItem('cafe_lux_client_session');
-      if (!sessionId) {
-        sessionId = crypto.randomUUID();
-        localStorage.setItem('cafe_lux_client_session', sessionId);
+        let sessionId = localStorage.getItem('cafe_lux_client_session');
+        if (!sessionId) {
+          // 🌟 استدعاء الدالة الآمنة هنا بدلاً من الـ Crypto
+          sessionId = getSafeUUID();
+          localStorage.setItem('cafe_lux_client_session', sessionId);
+        }
+
+        await fetchUserOrders(sessionId);
+      } catch (error) {
+        console.error("Error loading client data:", error);
+      } finally {
+        // 🌟 ضمان إخفاء شاشة التحميل مهما حدثت من أخطاء
+        setIsLoading(false);
       }
-
-      await fetchUserOrders(sessionId);
-      setIsLoading(false);
     };
     fetchRealData();
   }, [cafeSlug, tableNumber]);
 
-  // 📡 إعداد المراقبة الحية (Realtime Listener)
   useEffect(() => {
     const sessionId = localStorage.getItem('cafe_lux_client_session');
     if (!sessionId) return;
@@ -276,7 +292,6 @@ export default function ClientMenuPage({ params }: { params: Promise<{ cafeSlug:
       </div>
 
       <main className="px-6 mt-6 space-y-3">
-        {/* 🌟 المكون السري الذي أصلح مشكلة اختفاء المنتجات مع اللغات */}
         <div className="flex flex-col gap-3">
           {(() => {
             const filteredProducts = products.filter(p => {

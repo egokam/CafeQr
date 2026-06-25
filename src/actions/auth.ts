@@ -31,13 +31,13 @@ export async function verifyOtpAndUpdatePins(email: string, otp: string, cafeId:
 }
 
 // دالة تحديث إعدادات المقهى الشاملة (الاسم والرموز)
-export async function updateCafeSettings(cafeId: string, newName?: string, newAdminPin?: string, newCashierPin?: string) {
+export async function updateCafeSettings(cafeId: string, newName?: string, newAdminPin?: string, newCashierPin?: string, maxCashiers?: number) {
   const updates: any = {};
   if (newName) updates.name = newName;
   if (newAdminPin) updates.admin_pin = newAdminPin;
   if (newCashierPin) updates.cashier_pin = newCashierPin;
+  if (maxCashiers !== undefined && !isNaN(maxCashiers)) updates.max_cashiers = Number(maxCashiers);
 
-  // إذا لم يقم بإدخال أي شيء، لا داعي للاتصال بقاعدة البيانات
   if (Object.keys(updates).length === 0) return { success: true };
 
   const { error } = await supabaseAdmin.from('cafes').update(updates).eq('id', cafeId);
