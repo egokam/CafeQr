@@ -109,13 +109,20 @@ export default function ClientMenuPage({ params }: { params: Promise<{ cafeSlug:
     fetchRealData();
   }, [cafeSlug, tableNumber]);
 
+  // 📡 إعداد المراقبة الحية (Realtime Listener) لحالة طلب الزبون
   useEffect(() => {
     const sessionId = localStorage.getItem('cafe_lux_client_session');
     if (!sessionId) return;
     
     const channel = supabase.channel(`client-orders-${sessionId}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders', filter: `session_id=eq.${sessionId}` }, 
-      () => { 
+      .on('postgres_changes', { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'orders', 
+          filter: `session_id=eq.${sessionId}` 
+        }, 
+      (payload) => { 
+        console.log("Realtime Update for Client:", payload);
         fetchUserOrders(sessionId);
       }).subscribe();
       

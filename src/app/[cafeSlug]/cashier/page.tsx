@@ -48,16 +48,28 @@ export default function CashierDashboard({ params }: { params: Promise<{ cafeSlu
       setCafeId(cafeData.id);
       await fetchOrders(cafeData.id);
 
-      const channel = supabase.channel('realtime-orders')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `cafe_id=eq.${cafeData.id}` }, (payload) => {
+      // 📡 إعداد المراقبة الحية (Realtime Listener) للطلبات الجديدة
+      const channel = supabase.channel(`realtime-orders-${cafeData.id}`)
+        .on('postgres_changes', { 
+            event: '*', 
+            schema: 'public', 
+            table: 'orders', 
+            filter: `cafe_id=eq.${cafeData.id}` 
+          }, 
+          (payload) => {
+          console.log("Realtime Update in Cashier:", payload);
           fetchOrders(cafeData.id);
+          
           if (payload.eventType === 'INSERT') {
-             new Audio('/bell.mp3').play().catch(() => {});
+            // تشغيل جرس التنبيه عند وصول طلب جديد
+            const audio = new Audio('/bell.mp3');
+            audio.play().catch((err) => console.log("Audio play blocked by browser:", err));
           }
         }).subscribe();
 
       return () => { supabase.removeChannel(channel); };
     };
+    
     setupCashier();
   }, [cafeSlug]);
 
@@ -73,6 +85,10 @@ export default function CashierDashboard({ params }: { params: Promise<{ cafeSlu
       setIsAuthenticated(true);
       sessionStorage.setItem('cashier_authenticated', 'true');
       setAttempts(0);
+      
+      // حيلة لانتزاع تصريح الصوت من المتصفح عند تسجيل الدخول
+      new Audio('/bell.mp3').play().then(audio => audio?.pause()).catch(()=> {});
+
     } else {
       const newAttempts = attempts + 1;
       setAttempts(newAttempts);
@@ -92,14 +108,14 @@ export default function CashierDashboard({ params }: { params: Promise<{ cafeSlu
   };
 
 const updateOrderStatus = async (orderId: string, newStatus: string) => {
-    // تحديث الحالة عبر السيرفر بأمان
+    // مسحنا الـ cafeId ليتطابق مع كودك القديم
     const { success } = await cashierUpdateOrderStatus(orderId, newStatus);
     if (!success) alert("حدث خطأ أثناء تحديث الطلب.");
   };
 
   const markOutOfStock = async (productId: string, productName: string) => {
     if(!confirm(`هل أنت متأكد أن "${productName}" قد نفد؟ سيتم إخفاؤه فوراً.`)) return;
-    // الإيقاف عبر السيرفر بأمان
+    // مسحنا الـ cafeId ليتطابق مع كودك القديم
     const { success } = await cashierMarkOutOfStock(productId);
     if (success) alert(`تم إيقاف "${productName}".`);
     else alert("حدث خطأ أثناء إيقاف المنتج.");

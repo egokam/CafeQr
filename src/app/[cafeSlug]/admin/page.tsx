@@ -160,7 +160,7 @@ export default function AdminDashboard({ params }: { params: Promise<{ cafeSlug:
   };
 
   // دالة الإضافة والتعديل المشتركة
-const handleAddOrUpdateProduct = async (e: React.FormEvent) => {
+  const handleAddOrUpdateProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!cafeId || !name || !price || (!imageFile && !editingId)) return alert("يرجى تعبئة الحقول الأساسية!");
     setIsUploading(true);
@@ -210,7 +210,8 @@ const handleAddOrUpdateProduct = async (e: React.FormEvent) => {
       resetForm();
       fetchProducts(cafeId);
     } catch (error: any) { 
-      alert("حدث خطأ أثناء حفظ المنتج."); 
+      console.error("Supabase Error:", error);
+      alert("الخطأ هو: " + (error.message || "حدث خطأ غير معروف"));
     } finally { 
       setIsUploading(false); 
     }
@@ -226,9 +227,10 @@ const handleAddOrUpdateProduct = async (e: React.FormEvent) => {
       // استخدام السيرفر للحذف
       const { success } = await adminDeleteProduct(id);
       if (success) fetchProducts(cafeId!);
-      else alert("حدث خطأ أثناء الحذف.");
-    } catch (error) {
-      alert("حدث خطأ أثناء الحذف.");
+      else throw new Error("فشل الحذف من قاعدة البيانات");
+    } catch (error: any) {
+      console.error("Supabase Delete Error:", error);
+      alert("الخطأ هو: " + (error.message || "حدث خطأ غير معروف أثناء الحذف"));
     }
   };
 
