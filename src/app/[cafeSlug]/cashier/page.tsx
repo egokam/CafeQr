@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect, use } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "../../../lib/supabase";
 import { Check, X, Clock, ChefHat, AlertOctagon, Printer, Lock } from "lucide-react";
-import { verifyPin, cashierUpdateOrderStatus, cashierMarkOutOfStock } from "@/actions/auth";
+import { verifyPin, cashierUpdateOrderStatus, cashierMarkOutOfStock } from "../../../actions/auth";
 
 const formatMAD = (price: number) => {
   return `${Number(price).toFixed(2)} د.م`;

@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect, use } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "../../../lib/supabase";
 import { Plus, Trash2, Image as ImageIcon, Loader2, QrCode, PackageSearch, Printer, Lock, Settings, Edit, X } from "lucide-react";
 import QRCode from "react-qr-code";
-import { verifyPin, sendRecoveryEmail, verifyOtpAndUpdatePins, updateCafeSettings, adminAddProduct, adminUpdateProduct, adminDeleteProduct } from "@/actions/auth";
+import { verifyPin, sendRecoveryEmail, verifyOtpAndUpdatePins, updateCafeSettings, adminAddProduct, adminUpdateProduct, adminDeleteProduct } from "../../../actions/auth";
 
 const CATEGORIES = ["القهوة", "الحلوى", "عصائر", "مخبوزات"];
 
